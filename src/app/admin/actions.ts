@@ -31,7 +31,7 @@ export async function updateOrderAction(formData:FormData){
   if(!id.success||!status.success||!payment.success)return;
   const {error}=await supabase.rpc("admin_update_order",{p_order_id:id.data,p_status:status.data,p_payment_status:payment.data,p_note:text(formData,"note").slice(0,300)});
   if(error)redirect(`/admin/dashboard?error=${encodeURIComponent(error.message.includes("PAYMENT_PROOF_REQUIRED")?"Unggah bukti QRIS sebelum menyetujui pembayaran.":"Status pesanan gagal diperbarui.")}`);
-  revalidatePath("/admin/dashboard");revalidatePath("/order");
+  revalidatePath("/admin/dashboard");revalidatePath("/admin/queue");revalidatePath("/admin/payments");revalidatePath("/order");redirect("/admin/dashboard?saved=1");
 }
 
 export async function saveProductAction(formData:FormData){
@@ -63,3 +63,4 @@ export async function saveToppingAction(formData:FormData){const supabase=await 
 export async function deleteCategoryAction(formData:FormData){const supabase=await ownerClient();const id=z.string().uuid().safeParse(text(formData,"id"));if(!id.success)return;const {error}=await supabase.from("categories").update({is_active:false}).eq("id",id.data);if(error)redirect("/admin/categories?error=Kategori gagal dinonaktifkan.");revalidatePath("/");revalidatePath("/admin/categories");}
 export async function deactivateToppingAction(formData:FormData){const supabase=await ownerClient();const id=z.string().uuid().safeParse(text(formData,"id"));if(!id.success)return;const {error}=await supabase.from("toppings").update({is_active:false}).eq("id",id.data);if(error)redirect("/admin/toppings?error=Topping gagal dinonaktifkan.");revalidatePath("/admin/toppings");}
 export async function updateStoreSettingsAction(formData:FormData){const supabase=await ownerClient();const fee=z.coerce.number().int().min(0).max(100000).safeParse(formData.get("preparation_fee"));if(!fee.success)redirect("/admin/settings?error=Biaya layanan belum valid.");const {error}=await supabase.from("store_settings").update({store_name:text(formData,"store_name"),description:text(formData,"description"),phone:text(formData,"phone")||null,is_open:formData.get("is_open")==="on",preparation_fee:fee.data,qris_image_url:text(formData,"qris_image_url")||null,opens_at:text(formData,"opens_at")||null,closes_at:text(formData,"closes_at")||null}).eq("id",1);if(error)redirect("/admin/settings?error=Pengaturan gagal disimpan.");revalidatePath("/");revalidatePath("/admin/settings");redirect("/admin/settings?saved=1");}
+

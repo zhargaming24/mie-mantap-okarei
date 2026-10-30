@@ -12,10 +12,14 @@ export async function getStoreData() {
     supabase.from("product_toppings").select("product_id,topping_id"),
   ]);
   const toppingRows = (toppings.data ?? []) as Topping[];
-  const productsWithToppings = ((products.data ?? []) as Product[]).map((product) => ({
-    ...product,
-    toppingOptions: toppingRows.filter((topping) => (productToppings.data ?? []).some((link) => link.product_id === product.id && link.topping_id === topping.id)),
-  }));
+  const links = productToppings.data ?? [];
+  const productsWithToppings = ((products.data ?? []) as Product[]).map((product) => {
+    const categoryName = (categories.data ?? []).find((category) => category.id === product.category_id)?.name;
+    return {
+      ...product,
+      toppingOptions: toppingRows.filter((topping) => categoryName === "Makanan" || links.some((link) => link.product_id === product.id && link.topping_id === topping.id)),
+    };
+  });
   return {
     configured: true,
     products: productsWithToppings,
@@ -31,3 +35,4 @@ function isWithinHours(settings:StoreSettings){
   const now=parts[0]*60+parts[1];const [openHour,openMinute]=settings.opens_at.split(":").map(Number);const [closeHour,closeMinute]=settings.closes_at.split(":").map(Number);const open=openHour*60+openMinute;const close=closeHour*60+closeMinute;
   return open<=close?now>=open&&now<close:now>=open||now<close;
 }
+

@@ -31,7 +31,7 @@ export async function updateOrderAction(formData:FormData){
   if(!id.success||!status.success||!payment.success)return;
   const {error}=await supabase.rpc("admin_update_order",{p_order_id:id.data,p_status:status.data,p_payment_status:payment.data,p_note:text(formData,"note").slice(0,300)});
   if(error)redirect(`/admin/dashboard?error=${encodeURIComponent(error.message.includes("PAYMENT_PROOF_REQUIRED")?"Unggah bukti QRIS sebelum menyetujui pembayaran.":"Status pesanan gagal diperbarui.")}`);
-  revalidatePath("/admin/dashboard");revalidatePath("/admin/queue");revalidatePath("/admin/payments");revalidatePath("/order");redirect("/admin/dashboard?saved=1");
+  revalidatePath("/admin/dashboard");revalidatePath("/admin/queue");revalidatePath("/admin/payments");revalidatePath("/admin/reports");revalidatePath("/order");redirect("/admin/dashboard?saved=1");
 }
 
 export async function saveProductAction(formData:FormData){

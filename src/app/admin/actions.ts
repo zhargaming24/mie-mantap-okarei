@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 async function ownerClient(){
   const supabase=await createSupabaseServerClient(); if(!supabase)redirect("/admin/login?error=setup");
@@ -55,22 +56,24 @@ export async function saveProductAction(formData:FormData){
   await supabase.from("product_toppings").delete().eq("product_id",productId);
   const toppingIds=formData.getAll("topping_id").map(String).filter((id)=>z.string().uuid().safeParse(id).success);
   if(toppingIds.length)await supabase.from("product_toppings").insert(toppingIds.map((topping_id)=>({product_id:productId,topping_id})));
-  revalidatePath("/");revalidatePath("/admin/products");redirect("/admin/products?saved=1");
-}
-export async function deleteProductAction(formData:FormData){
-  const supabase=await ownerClient();
+  revalidatePath("/");revalidexport async function deleteProductAction(formData:FormData){
+  await ownerClient();
   const id=z.string().uuid().safeParse(text(formData,"id"));
   if(!id.success)redirect("/admin/products?error=ID produk tidak valid.");
-  const {data:deleted,error}=await supabase.from("products").delete().eq("id",id.data).select("id").maybeSingle();
+  const admin=createSupabaseAdminClient();
+  if(!admin)redirect("/admin/products?error=Pengaturan server belum lengkap untuk menghapus produk.");
+  const {data:deleted,error}=await admin.from("products").delete().eq("id",id.data).select("id").maybeSingle();
   if(error){
     const message=error.code==="23503"
-      ?"Produk masih terhubung dengan data lain sehingga belum bisa dihapus."
-      :"Produk gagal dihapus. Pastikan Anda masuk sebagai owner lalu coba lagi.";
+      ?"Produk masih dipakai oleh data lain sehingga belum bisa dihapus."
+      :"Penghapusan ditolak database. Coba lagi atau hubungi pengelola.";
     redirect(`/admin/products?error=${encodeURIComponent(message)}`);
   }
-  if(!deleted)redirect("/admin/products?error=Produk tidak ditemukan atau akun ini tidak memiliki izin owner.");
+  if(!deleted)redirect("/admin/products?error=Produk tidak ditemukan.");
   revalidatePath("/");
   revalidatePath("/admin/products");
+  redirect("/admin/products?deleted=1");
+}ath("/admin/products");
   redirect("/admin/products?deleted=1");
 }
 export async function saveCategoryAction(formData:FormData){const supabase=await ownerClient();const name=z.string().min(2).max(50).safeParse(text(formData,"name"));const sort=z.coerce.number().int().min(0).max(999).safeParse(formData.get("sort_order"));if(!name.success||!sort.success)redirect("/admin/categories?error=Nama kategori atau urutan belum valid.");const slug=name.data.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");const id=z.string().uuid().safeParse(text(formData,"id"));const result=id.success?await supabase.from("categories").update({name:name.data,slug,sort_order:sort.data}).eq("id",id.data):await supabase.from("categories").insert({name:name.data,slug,sort_order:sort.data});if(result.error)redirect(`/admin/categories?error=${encodeURIComponent("Kategori gagal disimpan atau nama sudah ada.")}`);revalidatePath("/");revalidatePath("/admin/categories");redirect("/admin/categories?saved=1");}

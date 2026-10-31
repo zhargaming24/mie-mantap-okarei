@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 async function ownerClient(){
   const supabase=await createSupabaseServerClient(); if(!supabase)redirect("/admin/login?error=setup");
@@ -58,17 +59,19 @@ export async function saveProductAction(formData:FormData){
   revalidatePath("/");revalidatePath("/admin/products");redirect("/admin/products?saved=1");
 }
 export async function deleteProductAction(formData:FormData){
-  const supabase=await ownerClient();
+  await ownerClient();
   const id=z.string().uuid().safeParse(text(formData,"id"));
   if(!id.success)redirect("/admin/products?error=ID produk tidak valid.");
-  const {data:deleted,error}=await supabase.from("products").delete().eq("id",id.data).select("id").maybeSingle();
+  const admin=createSupabaseAdminClient();
+  if(!admin)redirect("/admin/products?error=Pengaturan server belum lengkap untuk menghapus produk.");
+  const {data:deleted,error}=await admin.from("products").delete().eq("id",id.data).select("id").maybeSingle();
   if(error){
     const message=error.code==="23503"
-      ?"Produk masih terhubung dengan data lain sehingga belum bisa dihapus."
-      :"Produk gagal dihapus. Pastikan Anda masuk sebagai owner lalu coba lagi.";
+      ?"Produk masih dipakai oleh data lain sehingga belum bisa dihapus."
+      :"Penghapusan ditolak database. Coba lagi atau hubungi pengelola.";
     redirect(`/admin/products?error=${encodeURIComponent(message)}`);
   }
-  if(!deleted)redirect("/admin/products?error=Produk tidak ditemukan atau akun ini tidak memiliki izin owner.");
+  if(!deleted)redirect("/admin/products?error=Produk tidak ditemukan.");
   revalidatePath("/");
   revalidatePath("/admin/products");
   redirect("/admin/products?deleted=1");

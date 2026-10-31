@@ -57,7 +57,22 @@ export async function saveProductAction(formData:FormData){
   if(toppingIds.length)await supabase.from("product_toppings").insert(toppingIds.map((topping_id)=>({product_id:productId,topping_id})));
   revalidatePath("/");revalidatePath("/admin/products");redirect("/admin/products?saved=1");
 }
-export async function deleteProductAction(formData:FormData){const supabase=await ownerClient();const id=z.string().uuid().safeParse(text(formData,"id"));if(!id.success)return;const {error}=await supabase.from("products").delete().eq("id",id.data);if(error)redirect("/admin/products?error=Produk tidak dapat dihapus.");revalidatePath("/");revalidatePath("/admin/products");}
+export async function deleteProductAction(formData:FormData){
+  const supabase=await ownerClient();
+  const id=z.string().uuid().safeParse(text(formData,"id"));
+  if(!id.success)redirect("/admin/products?error=ID produk tidak valid.");
+  const {data:deleted,error}=await supabase.from("products").delete().eq("id",id.data).select("id").maybeSingle();
+  if(error){
+    const message=error.code==="23503"
+      ?"Produk masih terhubung dengan data lain sehingga belum bisa dihapus."
+      :"Produk gagal dihapus. Pastikan Anda masuk sebagai owner lalu coba lagi.";
+    redirect(`/admin/products?error=${encodeURIComponent(message)}`);
+  }
+  if(!deleted)redirect("/admin/products?error=Produk tidak ditemukan atau akun ini tidak memiliki izin owner.");
+  revalidatePath("/");
+  revalidatePath("/admin/products");
+  redirect("/admin/products?deleted=1");
+}
 export async function saveCategoryAction(formData:FormData){const supabase=await ownerClient();const name=z.string().min(2).max(50).safeParse(text(formData,"name"));const sort=z.coerce.number().int().min(0).max(999).safeParse(formData.get("sort_order"));if(!name.success||!sort.success)redirect("/admin/categories?error=Nama kategori atau urutan belum valid.");const slug=name.data.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");const id=z.string().uuid().safeParse(text(formData,"id"));const result=id.success?await supabase.from("categories").update({name:name.data,slug,sort_order:sort.data}).eq("id",id.data):await supabase.from("categories").insert({name:name.data,slug,sort_order:sort.data});if(result.error)redirect(`/admin/categories?error=${encodeURIComponent("Kategori gagal disimpan atau nama sudah ada.")}`);revalidatePath("/");revalidatePath("/admin/categories");redirect("/admin/categories?saved=1");}
 export async function saveToppingAction(formData:FormData){const supabase=await ownerClient();const name=z.string().min(2).max(60).safeParse(text(formData,"name"));const price=z.coerce.number().int().min(0).safeParse(formData.get("price"));const stock=z.coerce.number().int().min(0).safeParse(formData.get("stock"));if(!name.success||!price.success||!stock.success)redirect("/admin/toppings?error=Periksa data topping.");const id=z.string().uuid().safeParse(text(formData,"id"));let error;if(id.success){const {data:before}=await supabase.from("toppings").select("stock").eq("id",id.data).single();const result=await supabase.from("toppings").update({name:name.data,price:price.data,stock:stock.data}).eq("id",id.data);error=result.error;if(!error&&before&&before.stock!==stock.data){const {data:{user}}=await supabase.auth.getUser();await supabase.from("stock_movements").insert({topping_id:id.data,change_amount:stock.data-before.stock,reason:"owner_adjustment",actor_id:user?.id??null});}}else{const result=await supabase.from("toppings").insert({name:name.data,price:price.data,stock:stock.data,is_active:true}).select("id").single();error=result.error;if(!error&&result.data&&stock.data>0){const {data:{user}}=await supabase.auth.getUser();await supabase.from("stock_movements").insert({topping_id:result.data.id,change_amount:stock.data,reason:"initial_stock",actor_id:user?.id??null});}}if(error)redirect("/admin/toppings?error=Topping gagal disimpan.");revalidatePath("/admin/toppings");redirect("/admin/toppings?saved=1");}
 export async function deleteCategoryAction(formData:FormData){const supabase=await ownerClient();const id=z.string().uuid().safeParse(text(formData,"id"));if(!id.success)return;const {error}=await supabase.from("categories").update({is_active:false}).eq("id",id.data);if(error)redirect("/admin/categories?error=Kategori gagal dinonaktifkan.");revalidatePath("/");revalidatePath("/admin/categories");}

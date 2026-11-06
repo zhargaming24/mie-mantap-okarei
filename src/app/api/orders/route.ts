@@ -5,7 +5,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const schema = z.object({
   customer_name: z.string().trim().min(2).max(80),
-  phone: z.string().regex(/^(\\+62|62|0)8[1-9][0-9]{6,11}$/),
+  phone: z.string().regex(/^(\+62|62|0)8[1-9][0-9]{6,11}$/),
   room_number: z.string().trim().min(1).max(20),
   note: z.string().max(300).optional().default(""),
   payment_method: z.enum(["CASH", "QRIS"]),
@@ -27,7 +27,8 @@ export async function POST(request: Request) {
   if (!supabase) return NextResponse.json({ error: "Supabase belum dikonfigurasi." }, { status: 503 });
   const form = await request.formData().catch(() => null);
   if (!form) return NextResponse.json({ error: "Form pesanan tidak valid." }, { status: 400 });
-  const rawOrder = JSON.parse(String(form.get("order") ?? "null"));
+  let rawOrder: unknown;
+  try { rawOrder = JSON.parse(String(form.get("order") ?? "null")); } catch { return NextResponse.json({ error: "Form pesanan tidak valid." }, { status: 400 }); }
   const parsed = schema.safeParse(rawOrder);
   if (!parsed.success) return NextResponse.json({ error: "Periksa kembali data pesanan dan nomor HP." }, { status: 400 });
   const { access_token, idempotency_key, ...input } = parsed.data;

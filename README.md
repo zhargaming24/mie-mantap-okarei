@@ -38,7 +38,8 @@ Gunakan email owner untuk masuk di `/admin/login`. Situs mulai dalam status **tu
 | `NEXT_PUBLIC_SUPABASE_URL` | URL proyek Supabase | Tidak |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Kunci publishable Supabase untuk data publik dan Auth | Tidak |
 | `SUPABASE_SERVICE_ROLE_KEY` | Upload bukti ke bucket privat di server | Ya, server only |
-| `NEXT_PUBLIC_SITE_URL` | URL situs untuk link absolut/integrasi | Tidak |\n| `FONNTE_TOKEN` | Token Fonnte untuk mengirim status pesanan melalui WhatsApp | Ya, server only |
+| `NEXT_PUBLIC_SITE_URL` | URL situs untuk link absolut/integrasi | Tidak |
+| `FONNTE_TOKEN` | Token Fonnte untuk mengirim status pesanan melalui WhatsApp | Ya, server only |
 
 Jangan menaruh service role key di variabel `NEXT_PUBLIC_*`, GitHub, atau browser. Buat bucket dan kebijakan storage lewat migration; jangan mengubah `payment-proofs` menjadi public.
 

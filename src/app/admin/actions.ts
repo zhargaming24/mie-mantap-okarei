@@ -32,7 +32,31 @@ export async function updateOrderAction(formData:FormData){
   if(!id.success||!status.success||!payment.success)return;
   const {error}=await supabase.rpc("admin_update_order",{p_order_id:id.data,p_status:status.data,p_payment_status:payment.data,p_note:text(formData,"note").slice(0,300)});
   if(error)redirect(`/admin/dashboard?error=${encodeURIComponent(error.message.includes("PAYMENT_PROOF_REQUIRED")?"Unggah bukti QRIS sebelum menyetujui pembayaran.":"Status pesanan gagal diperbarui.")}`);
-  revalidatePath("/admin/dashboard");revalidatePath("/admin/queue");revalidatePath("/admin/payments");revalidatePath("/admin/reports");revalidatePath("/order");redirect("/admin/dashboard?saved=1");
+  let notificationError = "";
+  if (["PREPARING","READY","COMPLETED","CANCELLED"].includes(status.data)) {
+    const token = process.env.FONNTE_TOKEN;
+    const { data: order } = await supabase.from("orders").select("customer_name,phone,order_number,queue(queue_number)").eq("id",id.data).single();
+    if (!token) notificationError = "FONNTE_TOKEN belum diatur";
+    else if (order?.phone) {
+      const rawPhone = order.phone.replace(/\\D/g, "");
+      const target = rawPhone.startsWith("0") ? `62${rawPhone.slice(1)}` : rawPhone;
+      const queue = Array.isArray(order.queue) ? order.queue[0]?.queue_number : (order.queue as {queue_number?:string}|null)?.queue_number;
+      const messages: Record<string,string> = {
+        PREPARING: `Halo ${order.customer_name}! Pesananmu ${queue ? `(${queue}) ` : ""}sedang kami proses. 🔎`,
+        READY: `Halo ${order.customer_name}! Pesananmu ${queue ? `(${queue}) ` : ""}siap diantarkan. 🍜`,
+        COMPLETED: "Pesanan sudah diantarkan, terima kasih banyak sudah memesan 🙏",
+        CANCELLED: `Halo ${order.customer_name}, pesananmu ${queue ? `(${queue}) ` : ""}dibatalkan. Silakan hubungi kami jika ada pertanyaan.`,
+      };
+      try {
+        const payload = new URLSearchParams({ target, message: messages[status.data] });
+        const response = await fetch("https://api.fonnte.com/send", { method: "POST", headers: { Authorization: token }, body: payload, signal: AbortSignal.timeout(10000) });
+        if (!response.ok) notificationError = "Fonnte menolak pengiriman pesan";
+      } catch { notificationError = "layanan Fonnte tidak dapat dihubungi"; }
+    }
+  }
+  revalidatePath("/admin/dashboard");revalidatePath("/admin/queue");revalidatePath("/admin/payments");revalidatePath("/admin/reports");revalidatePath("/order");
+  if (notificationError) redirect(`/admin/dashboard?error=${encodeURIComponent("Status tersimpan, WhatsApp belum terkirim: " + notificationError)}`);
+  redirect("/admin/dashboard?saved=1");
 }
 
 export async function saveProductAction(formData:FormData){

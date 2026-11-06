@@ -15,8 +15,8 @@ Website pemesanan makanan dan minuman untuk lingkungan Asrama Telkom. Dibangun d
 
 1. Gunakan Node.js 22 atau lebih baru.
 2. Pasang dependency dengan `npm install`.
-3. Salin `.env.example` menjadi `.env.local`, lalu isi variabel Supabase.
-4. Jalankan `supabase/migrations/202610300001_initial_schema.sql` di Supabase Dashboard → SQL Editor.
+3. Salin `.env.example` menjadi `.env.local`, lalu isi variabel Supabase. Isi `FONNTE_TOKEN` jika ingin notifikasi WhatsApp otomatis.
+4. Jalankan migration secara berurutan di Supabase Dashboard → SQL Editor, termasuk `supabase/migrations/202611070001_require_qris_proof_before_order.sql`.
 5. Buat user owner lewat Supabase Authentication → Users. Setelah itu jalankan SQL berikut dengan email akun owner tersebut:
 
    ```sql
@@ -38,25 +38,25 @@ Gunakan email owner untuk masuk di `/admin/login`. Situs mulai dalam status **tu
 | `NEXT_PUBLIC_SUPABASE_URL` | URL proyek Supabase | Tidak |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Kunci publishable Supabase untuk data publik dan Auth | Tidak |
 | `SUPABASE_SERVICE_ROLE_KEY` | Upload bukti ke bucket privat di server | Ya, server only |
-| `NEXT_PUBLIC_SITE_URL` | URL situs untuk link absolut/integrasi | Tidak |
+| `NEXT_PUBLIC_SITE_URL` | URL situs untuk link absolut/integrasi | Tidak |\n| `FONNTE_TOKEN` | Token Fonnte untuk mengirim status pesanan melalui WhatsApp | Ya, server only |
 
 Jangan menaruh service role key di variabel `NEXT_PUBLIC_*`, GitHub, atau browser. Buat bucket dan kebijakan storage lewat migration; jangan mengubah `payment-proofs` menjadi public.
 
 ## Deployment Vercel
 
 1. Impor repository GitHub ini sebagai project Next.js di Vercel.
-2. Tambahkan environment variables di atas di **Project Settings → Environment Variables** untuk Production dan Preview.
+2. Tambahkan environment variables di atas di **Project Settings → Environment Variables** untuk Production dan Preview. Simpan `FONNTE_TOKEN` sebagai Secret dan jangan pernah memakai awalan `NEXT_PUBLIC_`.
 3. Terapkan migration pada proyek Supabase, buat akun owner, dan isi profil owner seperti langkah lokal.
 4. Deploy branch `main`. Push berikutnya akan memicu deployment otomatis melalui Git integration.
 5. Masuk sebagai owner, isi produk dan stok, unggah gambar QRIS milik toko, lalu aktifkan toko setelah jam operasional dan katalog siap.
 
 ## Alur QRIS dan stok
 
-Checkout mengunci baris produk dan topping, memeriksa harga/stok terbaru, lalu membuat order dan mengurangi stok dalam satu transaksi database. Order QRIS berstatus `PENDING_VERIFICATION`; bukti pembayaran masuk ke bucket privat. Owner dapat membuat signed URL dari dashboard dan menyetujui atau menolak bukti. Penolakan mengembalikan stok; unggah bukti ulang akan mencoba mencadangkan kembali stok secara atomik. Pembatalan order juga mengembalikan stok satu kali.
+Untuk QRIS, pembeli wajib mengunggah bukti sebelum order dan nomor antrean dibuat. Database memeriksa objek bukti di bucket privat sekaligus memproses harga dan stok secara atomik. Order QRIS berstatus `PENDING_VERIFICATION` dan tetap harus diperiksa owner. Owner dapat membuat signed URL dari dashboard dan menyetujui atau menolak bukti. Penolakan mengembalikan stok; unggah bukti ulang akan mencoba mencadangkan kembali stok secara atomik. Pembatalan order juga mengembalikan stok satu kali.
 
 ## Catatan operasional
 
-- QRIS tidak terhubung ke payment gateway. Verifikasi dilakukan owner berdasarkan bukti yang diunggah.
+- QRIS tidak terhubung ke payment gateway. Verifikasi dilakukan owner berdasarkan bukti yang diunggah. Notifikasi WhatsApp memakai API Fonnte dan hanya dikirim jika `FONNTE_TOKEN` tersedia.
 - Tanpa konfigurasi Supabase, storefront hanya menampilkan instruksi setup; order, autentikasi owner, upload, dan dashboard tidak berpura-pura berjalan.
 - Sebelum menerima transaksi nyata, periksa nilai biaya seduh, daftar harga/stok, nomor toko, QRIS, dan jam operasional.
 - Supabase Realtime memerlukan migration berhasil diterapkan dan tabel `orders`, `payments`, `queue` ada di publication `supabase_realtime`.
